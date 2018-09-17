@@ -163,8 +163,13 @@ func (env *CfEnvironment) updateCfAppServiceEp(appId *string,
 		ServiceMode:       "loadbalancer",
 		ServiceMappings:   make([]opflexServiceMapping, 0),
 	}
-	if external && agent.config.UplinkIface != "" && agent.serviceEp.Mac != "" &&
-		(agent.serviceEp.Ipv4 != nil || agent.serviceEp.Ipv6 != nil) {
+	env.log.Debug("REFACTOR: External Ip-Interface == ", agent.config.UplinkIface)
+	env.log.Debug("REFACTOR: External ServiceEp MAC Address == ", agent.serviceEp.Mac)
+	env.log.Debug("REFACTOR: External IPv4 Address  == ", agent.serviceEp.Ipv4)
+	//if external && agent.config.UplinkIface != "" && agent.serviceEp.Mac != "" &&
+	//	(agent.serviceEp.Ipv4 != nil || agent.serviceEp.Ipv6 != nil) {
+	if external && agent.config.UplinkIface != "" && agent.serviceEp.Mac != "" {
+		env.log.Debug("REFACTOR: Will add attributes to the ServiceEP File ")
 
 		appas.InterfaceName = agent.config.UplinkIface
 		appas.InterfaceVlan = uint16(agent.config.ServiceVlan)
