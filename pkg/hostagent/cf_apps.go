@@ -15,6 +15,8 @@
 package hostagent
 
 import (
+        "fmt"
+        "encoding/json"
 	"net"
 	"reflect"
 
@@ -139,6 +141,12 @@ func (env *CfEnvironment) cfAppIdChanged(appId *string) {
 	appInfo := env.appIdx[*appId]
 	env.indexLock.Unlock()
 	if appInfo != nil {
+                tmp, err := json.Marshal(appId)
+                if err != nil {
+                   panic (err)
+                }
+                env.log.Debug("REFACTOR: cfAppIdChanged appId struct")
+                fmt.Println(string(tmp))
 		env.cfAppChanged(appId, appInfo)
 	}
 }

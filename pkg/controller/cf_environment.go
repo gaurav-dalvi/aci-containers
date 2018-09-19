@@ -608,6 +608,7 @@ func (env *CfEnvironment) UpdateHppForCfComponents() {
 
 // must be called with cont.indexMutex locked
 func (env *CfEnvironment) LoadCellNetworkInfo(cellId string) {
+        env.log.Debug("REFACTOR:LoadCellNetworkInfo cellId == ", cellId)
 	if _, ok := env.cont.nodePodNetCache[cellId]; ok {
 		return
 	}
@@ -636,7 +637,8 @@ func (env *CfEnvironment) LoadCellNetworkInfo(cellId string) {
 
 // must be called with cont.indexMutex locked
 func (env *CfEnvironment) SetCellServiceInfo(nodeName, cellId string) {
-
+        env.log.Debug("REFACTOR:SetCellServiceInfo cellId == ", cellId)
+        env.log.Debug("REFACTOR:SetCellServiceInfo nodeName == ", nodeName)
 	// check if cell has opflex device mac
 	env.cont.indexMutex.Lock()
 	defer env.cont.indexMutex.Unlock()
@@ -717,8 +719,12 @@ func (env *CfEnvironment) NodePodNetworkChanged(nodename string) {
 }
 
 func (env *CfEnvironment) NodeServiceChanged(nodeName string) {
-	cellId := strings.TrimPrefix(nodeName, "diego-cell-")
-	env.SetCellServiceInfo(nodeName, cellId)
+
+        cellId := strings.TrimPrefix(nodeName, "diego-cell-")
+        env.log.Debug("REFACTOR: nodeName == ", nodeName)
+        env.log.Debug("REFACTOR: cellId == ", cellId)
+
+        env.SetCellServiceInfo(nodeName, cellId)
 	env.indexLock.Lock()
 	defer env.indexLock.Unlock()
 	apps := make(map[string]struct{})

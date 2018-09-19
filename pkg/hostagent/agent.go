@@ -1,4 +1,6 @@
 // Copyright 2017 Cisco Systems, Inc.
+
+
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +19,8 @@ package hostagent
 import (
 	"sync"
 	"time"
-
+        "fmt"
+        "encoding/json"
 	"github.com/Sirupsen/logrus"
 	"github.com/juju/ratelimit"
 
@@ -92,6 +95,14 @@ func (agent *HostAgent) Init() {
 		panic(err.Error())
 	}
 	agent.log.Info("Loaded cached endpoint CNI metadata: ", len(agent.epMetadata))
+
+
+        tmp, err := json.Marshal(agent.epMetadata)
+        if err != nil {
+           panic (err)
+        }
+        agent.log.Debug("REFACTOR: host agent Init")
+        fmt.Println(string(tmp))
 
 	err = agent.env.Init(agent)
 	if err != nil {
