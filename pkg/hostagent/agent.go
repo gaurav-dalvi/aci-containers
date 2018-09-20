@@ -19,7 +19,6 @@ package hostagent
 import (
 	"sync"
 	"time"
-        "fmt"
         "encoding/json"
 	"github.com/Sirupsen/logrus"
 	"github.com/juju/ratelimit"
@@ -101,8 +100,8 @@ func (agent *HostAgent) Init() {
         if err != nil {
            panic (err)
         }
-        agent.log.Debug("REFACTOR: host agent Init")
-        fmt.Println(string(tmp))
+        agent.log.Debug("REFACTOR: host agent Init", string(tmp))
+        //fmt.Println(string(tmp))
 
 	err = agent.env.Init(agent)
 	if err != nil {
