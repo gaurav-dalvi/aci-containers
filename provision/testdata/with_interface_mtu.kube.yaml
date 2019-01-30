@@ -209,7 +209,7 @@ rules:
   - watch
   - get
 - apiGroups:
-  - "{{ config.kube_config.use_netpol_apigroup }}"
+  - "networking.k8s.io"
   resources:
   - networkpolicies
   verbs:
@@ -217,7 +217,7 @@ rules:
   - watch
   - get
 - apiGroups:
-  - "{{ config.kube_config.use_apps_apigroup }}"
+  - "apps"
   resources:
   - deployments
   - replicasets
