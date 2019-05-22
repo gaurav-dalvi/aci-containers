@@ -48,31 +48,25 @@ type OpflexPortRange struct {
 }
 type OpflexSnatIp struct {
 	Uuid string `json:"uuid"`
-	IfaceName         string `json:"interface-name,omitempty"`
-	IpAddress  string `json:"ipaddress,omitempty"`
+	IfaceName         string `json:"iface_name,omitempty"`
+	SnatIp  string `json:"snat_ip,omitempty"`
 	MacAddress string   `json:"mac,omitempty"`
         local bool          `json:"local,omitempty"`
 	DestIpAddress  string `json:"destip_dddress,omitempty"`
 	DestPrefix     uint16  `json:"destPrefix,omitempty"`
 	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
-	InterfaceVlan uint16 `json:"interface-vlan,omitempty"`
+	InterfaceVlan uint `json:"interface_vlan,omitempty"`
 	// remote info needs to be papulated
 }
 /*
-func (agent *HostAgent) initPodInformerFromClient(
+func (agent *HostAgent) initSnatInformerFromClient(
 	kubeClient *kubernetes.Clientset) {
 
-	agent.initPodInformerBase(
+	agent.initSnatInformerBase(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				options.FieldSelector =
-					fields.Set{"spec.nodeName": agent.config.NodeName}.String()
-				return kubeClient.Core().Pods(metav1.NamespaceAll).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				options.FieldSelector =
-					fields.Set{"spec.nodeName": agent.config.NodeName}.String()
-				return kubeClient.Core().Pods(metav1.NamespaceAll).Watch(options)
 			},
 		})
 }
@@ -115,10 +109,13 @@ func SnatLogger(log *logrus.Logger,  snat *snatv1.SnatAllocation) *logrus.Entry 
 func opflexSnatIpLogger(log *logrus.Logger, snatip *OpflexSnatIp) *logrus.Entry {
         return log.WithFields(logrus.Fields{
                 "uuid":      snatip.Uuid,
-                "snaip":     snatip.IpAddress,
+                "snat_ip":     snatip.SnatIp,
 		"mac_address": snatip.MacAddress,
                 "start_port": snatip.PortRange.Start,
 		"end_port":   snatip.PortRange.End,
+		"local":      snatip.local,
+		"interface-name": snatip.IfaceName,
+		"interfcae-vlan": snatip.InterfaceVlan,
         })
 }
 
@@ -158,8 +155,21 @@ func (agent *HostAgent) snatUpdate(obj interface{}) {
 }
 
 func (agent *HostAgent) snatDelete(obj interface{}) {
-	agent.log.Debug("Snat File sync")
+	agent.log.Debug("Snat Delete Obj")
+	agent.indexMutex.Lock()
+        defer agent.indexMutex.Unlock()
+	snat := obj.(*snatv1.SnatAllocation)
+	snatUuid := string(snat.ObjectMeta.UID)
+	agent.snatIpDeleted(&snatUuid)
 }
+
+func (agent *HostAgent) snatIpDeleted(snatUuid *string) {
+	if _, ok := agent.OpflexSnatIps[*snatUuid]; ok {
+		delete(agent.OpflexSnatIps, *snatUuid)
+		agent.scheduleSyncEps()
+	}
+}
+
 
 func (agent *HostAgent) doUpdateSnat(key string) {
         snatobj, exists, err :=
@@ -184,18 +194,24 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		logger = agent.log.WithFields(logrus.Fields{})
 	}
 	logger.Debug("SnatChanged...")
+	/*
+	epMetaKey := fmt.Sprintf("%s/%s", snat.ObjectMeta.Namespace, snat.ObjectMeta.Name)
+	epmetadata, ok := agent.epMetadata[*epMetaKey] 
+	*/
 	snatip := &OpflexSnatIp {
 		Uuid: snatUuid,
+		IfaceName: agent.config.UplinkIface,
 	        MacAddress: snat.Spec.MacAddress,
-		IpAddress:  snat.Spec.SnatIp,
+		SnatIp:  snat.Spec.SnatIp,
+		local: true,
 		PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
 			     End: snat.Spec.SnatPortRange.End, },
+		InterfaceVlan: agent.config.ServiceVlan,
 	}
 	existing, ok := agent.OpflexSnatIps[snatUuid]
 	if (ok && !reflect.DeepEqual(existing, snatip)) || !ok {
 		agent.OpflexSnatIps[snatUuid] = snatip
 		agent.scheduleSyncSnats()
-		//agent.syncSnat()
 	}
 }
 
@@ -205,12 +221,12 @@ func (agent *HostAgent) syncSnat() bool {
 	}
 
 	agent.log.Debug("Syncing snats")
-	//agent.indexMutex.Lock()
+	agent.indexMutex.Lock()
 	opflexSnatIps := make(map[string]*OpflexSnatIp)
 	for k, v := range agent.OpflexSnatIps {
 		opflexSnatIps[k] = v
 	}
-	//agent.indexMutex.Unlock()
+	agent.indexMutex.Unlock()
 	files, err := ioutil.ReadDir(agent.config.OpFlexSnatDir)
 	if err != nil {
 		agent.log.WithFields(

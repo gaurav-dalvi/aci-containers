@@ -130,7 +130,7 @@ func (agent *testHostAgent) doTestSnat(t *testing.T, tempdir string,
 	agent.log.Info("Snat Object added ", snat)
 	snatdstr := pt.uuid 
 	assert.Equal(t, snatdstr, snat.Uuid, desc, pt.name, "uuid")
-	assert.Equal(t, pt.ip, snat.IpAddress, desc, pt.name, "ip")
+	assert.Equal(t, pt.ip, snat.SnatIp, desc, pt.name, "ip")
 }
 
 func TestSnatSync(t *testing.T) {
@@ -144,6 +144,8 @@ func TestSnatSync(t *testing.T) {
 	agent.config.OpFlexSnatDir = tempdir
 	agent.config.OpFlexEndpointDir = tempdir
         agent.config.OpFlexServiceDir = tempdir
+	agent.config.UplinkIface = "eth10"
+        agent.config.ServiceVlan = 4003
 	agent.run()
 
 	for i, pt := range snatTests {
@@ -154,42 +156,41 @@ func TestSnatSync(t *testing.T) {
 		}
 
 		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
-		/*
+	/*
 		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
+		agent.epMetadata[pt.namespace+"/"+pt.name] =
+			map[string]*metadata.ContainerMetadata{
+				cnimd.Id.ContId: cnimd,
+			}
+	*/
+		agent.fakeSnatSource.Add(snat)
+		agent.doTestSnat(t, tempdir, &pt, "create")
+	}
+	for _, pt := range snatTests {
+		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
+		/*cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
+		cnimd.Ifaces[0].Mac = pt.mac
 		agent.epMetadata[pt.namespace+"/"+pt.name] =
 			map[string]*metadata.ContainerMetadata{
 				cnimd.Id.ContId: cnimd,
 			}
 		*/
 		agent.fakeSnatSource.Add(snat)
-		agent.doTestSnat(t, tempdir, &pt, "create")
-	}
-     /*
-	for _, pt := range podTests {
-		pod := pod(pt.uuid, pt.namespace, pt.name, pt.eg, pt.sg)
-		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
-		cnimd.Ifaces[0].Mac = pt.mac
-		agent.epMetadata[pt.namespace+"/"+pt.name] =
-			map[string]*metadata.ContainerMetadata{
-				cnimd.Id.ContId: cnimd,
-			}
-		agent.fakePodSource.Add(pod)
 
-		agent.doTestPod(t, tempdir, &pt, "update")
+		agent.doTestSnat(t, tempdir, &pt, "update")
 	}
 
-	for _, pt := range podTests {
-		pod := pod(pt.uuid, pt.namespace, pt.name, pt.eg, pt.sg)
-		agent.fakePodSource.Delete(pod)
+	for _, pt := range snatTests {
+		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
+		agent.fakeSnatSource.Delete(snat)
 
 		tu.WaitFor(t, pt.name, 100*time.Millisecond,
 			func(last bool) (bool, error) {
-				epfile := filepath.Join(tempdir,
-					pt.uuid+"_"+pt.cont+"_"+pt.veth+".ep")
-				_, err := ioutil.ReadFile(epfile)
-				return tu.WaitNotNil(t, last, err, "pod deleted"), nil
+				snatfile := filepath.Join(tempdir,
+					pt.uuid+".snat")
+				_, err := ioutil.ReadFile(snatfile)
+				return tu.WaitNotNil(t, last, err, "snat deleted"), nil
 			})
 	}
-	*/
 	agent.stop()
 }
