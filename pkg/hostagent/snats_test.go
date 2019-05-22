@@ -34,15 +34,20 @@ import (
 	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat/v1"
 )
 
+type  portRange struct {
+	start int
+	end   int
+}
+
 func snatdata(uuid string, namespace string, name string,
-	 ip string, mac string, egAnnot string, sgAnnot string) *snatv1.SnatAllocation {
+ip string, mac string, port_range portRange, egAnnot string, sgAnnot string) *snatv1.SnatAllocation {
 	return &snatv1.SnatAllocation{
 		Spec: snatv1.SnatAllocationSpec{
 			PodName:  name,
 			NodeName: "test-node",
 			SnatPortRange: snatv1.PortRange {
-				Start:  1000,
-				End:   2000,
+				Start:  port_range.start,
+				End:   port_range.end,
 			},
 			SnatIp: ip,
 			MacAddress: mac,
@@ -59,10 +64,6 @@ func snatdata(uuid string, namespace string, name string,
 		},
 	}
 }
-type  portRange struct {
-	start int
-	end   int
-}
 
 type snatTest struct {
 	uuid      string
@@ -70,18 +71,19 @@ type snatTest struct {
 	name      string
 	ip        string
 	mac       string
-	//port_range portRange
+	port_range portRange
 	eg        string
 	sg        string
 }
 
 var snatTests = []snatTest{
 	{
-		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a667",
+		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a667",
 		"testns",
 		"pod1",
 		"10.1.1.1",
 		"00:0c:29:92:fe:d0",
+		portRange {3000, 4000},
 		egAnnot,
 		sgAnnot,
 	},
@@ -91,6 +93,7 @@ var snatTests = []snatTest{
 		"pod2",
 		"10.1.1.3",
 		"00:0c:29:92:fe:d1",
+		portRange {4000, 5000},
 		egAnnot,
 		sgAnnot,
 	},
@@ -100,6 +103,7 @@ var snatTests = []snatTest{
 		"pod3",
 		"10.1.1.2",
 		"52:54:00:e5:26:57",
+		portRange {5000, 6000},
 		egAnnot,
 		sgAnnot,
 	},
@@ -120,10 +124,11 @@ func (agent *testHostAgent) doTestSnat(t *testing.T, tempdir string,
 				return false, nil
 			}
 			err = json.Unmarshal(raw, snat)
+			agent.log.Info("Snat file added ", snatfile)
 			return tu.WaitNil(t, last, err, desc, pt.name, "unmarshal snat"), nil
 		})
-
-	snatdstr := snat.Uuid
+	agent.log.Info("Snat Object added ", snat)
+	snatdstr := pt.uuid 
 	assert.Equal(t, snatdstr, snat.Uuid, desc, pt.name, "uuid")
 	assert.Equal(t, pt.ip, snat.IpAddress, desc, pt.name, "ip")
 }
@@ -137,6 +142,8 @@ func TestSnatSync(t *testing.T) {
 
 	agent := testAgent()
 	agent.config.OpFlexSnatDir = tempdir
+	agent.config.OpFlexEndpointDir = tempdir
+        agent.config.OpFlexServiceDir = tempdir
 	agent.run()
 
 	for i, pt := range snatTests {
@@ -146,7 +153,7 @@ func TestSnatSync(t *testing.T) {
 				[]byte("random gibberish"), 0644)
 		}
 
-		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.eg, pt.sg)
+		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
 		/*
 		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
 		agent.epMetadata[pt.namespace+"/"+pt.name] =

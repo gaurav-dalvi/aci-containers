@@ -17,18 +17,13 @@
 package hostagent
 
 import (
-/*
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-*/
 	"reflect"
-/*
-/*
 	"strings"
-*/
 	"github.com/Sirupsen/logrus"
 /*
 	v1 "k8s.io/api/core/v1"
@@ -54,10 +49,10 @@ type OpflexPortRange struct {
 type OpflexSnatIp struct {
 	Uuid string `json:"uuid"`
 	IfaceName         string `json:"interface-name,omitempty"`
-	IpAddress  string `json:"ip,omitempty"`
+	IpAddress  string `json:"ipaddress,omitempty"`
 	MacAddress string   `json:"mac,omitempty"`
-        local bool          `json:"local-enabled"`
-	DestIpAddress  string `json:"ip,omitempty"`
+        local bool          `json:"local,omitempty"`
+	DestIpAddress  string `json:"destip_dddress,omitempty"`
 	DestPrefix     uint16  `json:"destPrefix,omitempty"`
 	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
 	InterfaceVlan uint16 `json:"interface-vlan,omitempty"`
@@ -82,6 +77,33 @@ func (agent *HostAgent) initPodInformerFromClient(
 		})
 }
 */
+
+func getsnat(snatfile string) (string, error) {
+	raw, err := ioutil.ReadFile(snatfile)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), err
+}
+
+func writeSnat(snatfile string, snat *OpflexSnatIp) (bool, error) {
+	newdata, err := json.MarshalIndent(snat, "", "  ")
+	if err != nil {
+		return true, err
+	}
+	existingdata, err := ioutil.ReadFile(snatfile)
+	if err == nil && reflect.DeepEqual(existingdata, newdata) {
+		return false, nil
+	}
+
+	err = ioutil.WriteFile(snatfile, newdata, 0644)
+	return true, err
+}
+
+func (agent *HostAgent) FormSnatFilePath(uuid string) string {
+	return filepath.Join(agent.config.OpFlexSnatDir, uuid+".snat")
+}
+
 func SnatLogger(log *logrus.Logger,  snat *snatv1.SnatAllocation) *logrus.Entry {
         return log.WithFields(logrus.Fields{
                 "namespace": snat.ObjectMeta.Namespace,
@@ -94,6 +116,7 @@ func opflexSnatIpLogger(log *logrus.Logger, snatip *OpflexSnatIp) *logrus.Entry 
         return log.WithFields(logrus.Fields{
                 "uuid":      snatip.Uuid,
                 "snaip":     snatip.IpAddress,
+		"mac_address": snatip.MacAddress,
                 "start_port": snatip.PortRange.Start,
 		"end_port":   snatip.PortRange.End,
         })
@@ -130,7 +153,7 @@ func (agent *HostAgent) snatUpdate(obj interface{}) {
                         Error("Could not create key:" + err.Error())
                 return
         }
-	agent.log.Info("Snat Object added ", snat)
+	//agent.log.Info("Snat Object added ", snat)
 	agent.doUpdateSnat(key);
 }
 
@@ -163,8 +186,8 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 	logger.Debug("SnatChanged...")
 	snatip := &OpflexSnatIp {
 		Uuid: snatUuid,
-		IpAddress:  snat.Spec.SnatIp,
 	        MacAddress: snat.Spec.MacAddress,
+		IpAddress:  snat.Spec.SnatIp,
 		PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
 			     End: snat.Spec.SnatPortRange.End, },
 	}
@@ -172,10 +195,72 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 	if (ok && !reflect.DeepEqual(existing, snatip)) || !ok {
 		agent.OpflexSnatIps[snatUuid] = snatip
 		agent.scheduleSyncSnats()
+		//agent.syncSnat()
 	}
 }
 
 func (agent *HostAgent) syncSnat() bool {
-	
+	if !agent.syncEnabled {
+		return false
+	}
+
+	agent.log.Debug("Syncing snats")
+	//agent.indexMutex.Lock()
+	opflexSnatIps := make(map[string]*OpflexSnatIp)
+	for k, v := range agent.OpflexSnatIps {
+		opflexSnatIps[k] = v
+	}
+	//agent.indexMutex.Unlock()
+	files, err := ioutil.ReadDir(agent.config.OpFlexSnatDir)
+	if err != nil {
+		agent.log.WithFields(
+			logrus.Fields{"SnatDir": agent.config.OpFlexSnatDir},
+		).Error("Could not read directory " + err.Error())
+		return true
+	}
+	seen := make(map[string]bool)
+	for _, f := range files {
+		uuid := f.Name()
+		if strings.HasSuffix(uuid, ".snat") {
+			uuid = uuid[:len(uuid)-5]
+		} else {
+			continue
+		}
+
+		snatfile := filepath.Join(agent.config.OpFlexSnatDir, f.Name())
+		logger := agent.log.WithFields(
+			logrus.Fields{"Uuid": uuid},
+		)
+
+		existing, ok := opflexSnatIps[uuid]
+		if ok {
+			fmt.Printf("snatfile:%s\n", snatfile)
+			wrote, err := writeSnat(snatfile, existing)
+			if err != nil {
+				opflexSnatIpLogger(agent.log, existing).Error("Error writing snat file: ", err)
+			} else if wrote {
+				opflexSnatIpLogger(agent.log, existing).Info("Updated snat")
+			}
+			seen[uuid] = true
+		} else {
+			logger.Info("Removing snat")
+			os.Remove(snatfile)
+		}
+	}
+	for _, snat := range opflexSnatIps {
+		if seen[snat.Uuid] {
+			continue
+		}
+
+		opflexSnatIpLogger(agent.log, snat).Info("Adding Snat")
+		snatfile :=
+			agent.FormSnatFilePath(snat.Uuid)
+		_, err = writeSnat(snatfile, snat)
+		if err != nil {
+			opflexSnatIpLogger(agent.log, snat).
+				Error("Error writing snat file: ", err)
+		}
+	}
+	agent.log.Debug("Finished snat sync")
 	return false;
 }

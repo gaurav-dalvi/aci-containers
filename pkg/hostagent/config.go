@@ -184,6 +184,7 @@ func (config *HostAgentConfig) InitFlags() {
 	flag.StringVar(&config.OpFlexConfigPath, "opflex-config-path", "/usr/local/etc/opflex-agent-ovs/base-conf.d", "Directory for writing Opflex configuration")
 	flag.StringVar(&config.OpFlexEndpointDir, "opflex-endpoint-dir", "/usr/local/var/lib/opflex-agent-ovs/endpoints/", "Directory for writing OpFlex endpoint metadata")
 	flag.StringVar(&config.OpFlexServiceDir, "opflex-service-dir", "/usr/local/var/lib/opflex-agent-ovs/services/", "Directory for writing OpFlex anycast service metadata")
+	flag.StringVar(&config.OpFlexSnatDir, "opflex-snat-dir", "/usr/local/var/lib/opflex-agent-ovs/snat/", "Directory for writing OpFlex anycast snat metadata")
 	flag.StringVar(&config.OpFlexFlowIdCacheDir, "opflex-flowid-cache-dir",
 		"/usr/local/var/lib/opflex-agent-ovs/ids/",
 		"OpFlex agent's flow-ID cache directory")
