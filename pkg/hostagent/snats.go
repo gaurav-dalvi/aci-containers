@@ -166,7 +166,7 @@ func (agent *HostAgent) snatDelete(obj interface{}) {
 func (agent *HostAgent) snatIpDeleted(snatUuid *string) {
 	if _, ok := agent.OpflexSnatIps[*snatUuid]; ok {
 		delete(agent.OpflexSnatIps, *snatUuid)
-		agent.scheduleSyncEps()
+		agent.scheduleSyncSnats()
 	}
 }
 
