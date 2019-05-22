@@ -1,0 +1,188 @@
+// Copyright 2017 Cisco Systems, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package hostagent
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	//"net"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	//v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apitypes "k8s.io/apimachinery/pkg/types"
+
+	"github.com/noironetworks/aci-containers/pkg/metadata"
+	//md "github.com/noironetworks/aci-containers/pkg/metadata"
+	tu "github.com/noironetworks/aci-containers/pkg/testutil"
+	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat/v1"
+)
+
+func snatdata(uuid string, namespace string, name string,
+	 ip string, mac string, egAnnot string, sgAnnot string) *snatv1.SnatAllocation {
+	return &snatv1.SnatAllocation{
+		Spec: snatv1.SnatAllocationSpec{
+			PodName:  name,
+			NodeName: "test-node",
+			SnatPortRange: snatv1.PortRange {
+				Start:  1000,
+				End:   2000,
+			},
+			SnatIp: ip,
+			MacAddress: mac,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			UID:       apitypes.UID(uuid),
+			Namespace: namespace,
+			Name:      name,
+			Annotations: map[string]string{
+				metadata.EgAnnotation: egAnnot,
+				metadata.SgAnnotation: sgAnnot,
+			},
+			Labels: map[string]string{},
+		},
+	}
+}
+type  portRange struct {
+	start int
+	end   int
+}
+
+type snatTest struct {
+	uuid      string
+	namespace string
+	name      string
+	ip        string
+	mac       string
+	//port_range portRange
+	eg        string
+	sg        string
+}
+
+var snatTests = []snatTest{
+	{
+		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a667",
+		"testns",
+		"pod1",
+		"10.1.1.1",
+		"00:0c:29:92:fe:d0",
+		egAnnot,
+		sgAnnot,
+	},
+	{
+		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a667",
+		"testns",
+		"pod2",
+		"10.1.1.3",
+		"00:0c:29:92:fe:d1",
+		egAnnot,
+		sgAnnot,
+	},
+	{
+		"6a281ef1-0fcb-4140-a38c-62977ef25d72",
+		"testns",
+		"pod3",
+		"10.1.1.2",
+		"52:54:00:e5:26:57",
+		egAnnot,
+		sgAnnot,
+	},
+}
+
+func (agent *testHostAgent) doTestSnat(t *testing.T, tempdir string,
+	pt *snatTest, desc string) {
+	var raw []byte
+	snat := &OpflexSnatIp{}
+
+	tu.WaitFor(t, pt.name, 100*time.Millisecond,
+		func(last bool) (bool, error) {
+			var err error
+			snatfile := filepath.Join(tempdir,
+				pt.uuid + ".snat")
+			raw, err = ioutil.ReadFile(snatfile)
+			if !tu.WaitNil(t, last, err, desc, pt.name, "read snat") {
+				return false, nil
+			}
+			err = json.Unmarshal(raw, snat)
+			return tu.WaitNil(t, last, err, desc, pt.name, "unmarshal snat"), nil
+		})
+
+	snatdstr := snat.Uuid
+	assert.Equal(t, snatdstr, snat.Uuid, desc, pt.name, "uuid")
+	assert.Equal(t, pt.ip, snat.IpAddress, desc, pt.name, "ip")
+}
+
+func TestSnatSync(t *testing.T) {
+	tempdir, err := ioutil.TempDir("", "hostagent_test_")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tempdir)
+
+	agent := testAgent()
+	agent.config.OpFlexSnatDir = tempdir
+	agent.run()
+
+	for i, pt := range snatTests {
+		if i%2 == 0 {
+			ioutil.WriteFile(filepath.Join(tempdir,
+				pt.uuid +".snat"),
+				[]byte("random gibberish"), 0644)
+		}
+
+		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.eg, pt.sg)
+		/*
+		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
+		agent.epMetadata[pt.namespace+"/"+pt.name] =
+			map[string]*metadata.ContainerMetadata{
+				cnimd.Id.ContId: cnimd,
+			}
+		*/
+		agent.fakeSnatSource.Add(snat)
+		agent.doTestSnat(t, tempdir, &pt, "create")
+	}
+     /*
+	for _, pt := range podTests {
+		pod := pod(pt.uuid, pt.namespace, pt.name, pt.eg, pt.sg)
+		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
+		cnimd.Ifaces[0].Mac = pt.mac
+		agent.epMetadata[pt.namespace+"/"+pt.name] =
+			map[string]*metadata.ContainerMetadata{
+				cnimd.Id.ContId: cnimd,
+			}
+		agent.fakePodSource.Add(pod)
+
+		agent.doTestPod(t, tempdir, &pt, "update")
+	}
+
+	for _, pt := range podTests {
+		pod := pod(pt.uuid, pt.namespace, pt.name, pt.eg, pt.sg)
+		agent.fakePodSource.Delete(pod)
+
+		tu.WaitFor(t, pt.name, 100*time.Millisecond,
+			func(last bool) (bool, error) {
+				epfile := filepath.Join(tempdir,
+					pt.uuid+"_"+pt.cont+"_"+pt.veth+".ep")
+				_, err := ioutil.ReadFile(epfile)
+				return tu.WaitNotNil(t, last, err, "pod deleted"), nil
+			})
+	}
+	*/
+	agent.stop()
+}

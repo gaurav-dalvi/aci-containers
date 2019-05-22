@@ -45,6 +45,7 @@ type K8sEnvironment struct {
 	endpointsInformer cache.SharedIndexInformer
 	serviceInformer   cache.SharedIndexInformer
 	nodeInformer      cache.SharedIndexInformer
+	snatInformer     cache.SharedIndexInformer
 }
 
 func NewK8sEnvironment(config *HostAgentConfig, log *logrus.Logger) (*K8sEnvironment, error) {
@@ -126,11 +127,12 @@ func (env *K8sEnvironment) PrepareRun(stopCh <-chan struct{}) (bool, error) {
 	go env.agent.netPolInformer.Run(stopCh)
 	go env.agent.depInformer.Run(stopCh)
 	go env.agent.rcInformer.Run(stopCh)
+	go env.agent.snatInformer.Run(stopCh)
 
 	env.agent.log.Info("Waiting for cache sync for remaining objects")
 	cache.WaitForCacheSync(stopCh,
 		env.agent.podInformer.HasSynced, env.agent.endpointsInformer.HasSynced,
-		env.agent.serviceInformer.HasSynced)
+		env.agent.serviceInformer.HasSynced, env.agent.snatInformer.HasSynced)
 	env.agent.log.Info("Cache sync successful")
 	return true, nil
 }

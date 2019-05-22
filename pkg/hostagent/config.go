@@ -104,6 +104,9 @@ type HostAgentConfig struct {
 
 	// Directory for writing OpFlex service metadata
 	OpFlexServiceDir string `json:"opflex-service-dir,omitempty"`
+	
+	// Directory for writing OpFlex service metadata
+	OpFlexSnatDir string `json:"opflex-snat-dir,omitempty"`
 
 	// OpFlex agent's flow-ID cache directory
 	OpFlexFlowIdCacheDir string `json:"opflex-flowid-cache-dir,omitempty"`

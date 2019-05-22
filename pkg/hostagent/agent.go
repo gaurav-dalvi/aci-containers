@@ -40,6 +40,7 @@ type HostAgent struct {
 
 	opflexEps      map[string][]*opflexEndpoint
 	opflexServices map[string]*opflexService
+	OpflexSnatIps  map[string]*OpflexSnatIp
 	epMetadata     map[string]map[string]*md.ContainerMetadata
 	cniToPodID     map[string]string
 	serviceEp      md.ServiceEndpoint
@@ -52,10 +53,10 @@ type HostAgent struct {
 	netPolInformer    cache.SharedIndexInformer
 	depInformer       cache.SharedIndexInformer
 	rcInformer        cache.SharedIndexInformer
+	snatInformer      cache.SharedIndexInformer
 	netPolPods        *index.PodSelectorIndex
 	depPods           *index.PodSelectorIndex
 	rcPods            *index.PodSelectorIndex
-
 	podNetAnnotation string
 	podIps           *ipam.IpCache
 	usedIPs          map[string]bool
@@ -77,6 +78,7 @@ func NewHostAgent(config *HostAgentConfig, env Environment, log *logrus.Logger) 
 		env:            env,
 		opflexEps:      make(map[string][]*opflexEndpoint),
 		opflexServices: make(map[string]*opflexService),
+		OpflexSnatIps:   make(map[string]*OpflexSnatIp),
 		epMetadata:     make(map[string]map[string]*md.ContainerMetadata),
 		cniToPodID:     make(map[string]string),
 
@@ -92,7 +94,8 @@ func NewHostAgent(config *HostAgentConfig, env Environment, log *logrus.Logger) 
 	}
 	ha.syncProcessors = map[string]func() bool{
 		"eps":      ha.syncEps,
-		"services": ha.syncServices}
+		"services": ha.syncServices,
+		"snat":     ha.syncSnat}
 	return ha
 }
 
@@ -122,6 +125,10 @@ func (agent *HostAgent) scheduleSyncEps() {
 
 func (agent *HostAgent) scheduleSyncServices() {
 	agent.ScheduleSync("services")
+}
+
+func (agent *HostAgent) scheduleSyncSnats() {
+	agent.ScheduleSync("snat")
 }
 
 func (agent *HostAgent) runTickers(stopCh <-chan struct{}) {
@@ -180,6 +187,7 @@ func (agent *HostAgent) EnableSync() (changed bool) {
 		agent.log.Info("Enabling OpFlex endpoint and service sync")
 		agent.scheduleSyncServices()
 		agent.scheduleSyncEps()
+		agent.scheduleSyncSnats()
 	}
 	return
 }
@@ -191,7 +199,8 @@ func (agent *HostAgent) Run(stopCh <-chan struct{}) {
 	}
 
 	if agent.config.OpFlexEndpointDir == "" ||
-		agent.config.OpFlexServiceDir == "" {
+		agent.config.OpFlexServiceDir == "" ||
+		agent.config.OpFlexSnatDir == "" {
 		agent.log.Warn("OpFlex endpoint and service directories not set")
 	} else {
 		if syncEnabled {
