@@ -192,7 +192,15 @@ func (agent *HostAgent) syncEps() bool {
 				if ep.Uuid != epidstr {
 					continue
 				}
-
+			agent.indexMutex.Lock()
+			for _, v := range agent.OpflexSnatIps  {
+				for _, uuid := range v.PodUuids {
+					if  uuid == poduuid {
+						ep.SnatIp = v.SnatIp
+					}
+				}
+			}
+			agent.indexMutex.Unlock()
 				wrote, err := writeEp(epfile, ep)
 				if err != nil {
 					opflexEpLogger(agent.log, ep).

@@ -49,16 +49,22 @@ type OpflexPortRange struct {
 
 type OpflexSnatIp struct {
 	Uuid string `json:"uuid"`
-	PodUuids []string `json:"pod_uuid"`
-	IfaceName         string `json:"iface_name,omitempty"`
-	SnatIp  string `json:"snat_ip,omitempty"`
+	PodUuids []string `json:"pod-uuid"`
+	IfaceName         string `json:"iface-name,omitempty"`
+	SnatIp  string `json:"snat-ip,omitempty"`
 	MacAddress string   `json:"mac,omitempty"`
         local bool          `json:"local,omitempty"`
-	DestIpAddress  string `json:"destip_dddress,omitempty"`
+	DestIpAddress  string `json:"destip-dddress,omitempty"`
 	DestPrefix     uint16  `json:"destPrefix,omitempty"`
 	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
 	InterfaceVlan uint `json:"interface_vlan,omitempty"`
-	// remote info needs to be papulated
+	Remote  []OpflexSnatIpRemoteInfo `json:"remote,omitempty"`
+}
+
+type OpflexSnatIpRemoteInfo struct {
+	NodeIp  string `json:"snat_ip,omitempty"`
+	MacAddress string   `json:"mac,omitempty"`
+	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
 }
 /*
 func (agent *HostAgent) initSnatInformerFromClient(
@@ -201,24 +207,54 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 	epMetaKey := fmt.Sprintf("%s/%s", snat.ObjectMeta.Namespace, snat.ObjectMeta.Name)
 	epmetadata, ok := agent.epMetadata[*epMetaKey] 
 	*/
-	poduuids := make([]string, 0)
+	_, ispodlocal := agent.opflexEps[snat.Spec.PodUuid]
 	existing, ok := agent.OpflexSnatIps[snatUuid]
-	if ok {
-		for _, uuid := range existing.PodUuids {
-			poduuids = append(poduuids, uuid)
+	remoteinfo := make([]OpflexSnatIpRemoteInfo, 0)
+	var snatip *OpflexSnatIp
+	if ispodlocal {
+		//logger.Debug("Pod is local...")
+		poduuids := make([]string, 0)
+		if ok {
+			for _, uuid := range existing.PodUuids {
+				poduuids = append(poduuids, uuid)
+			}
+			remoteinfo = existing.Remote
 		}
-	}
-	poduuids = append(poduuids, snat.Spec.PodUuid)
-	snatip := &OpflexSnatIp {
-		Uuid: snatUuid,
-		IfaceName: agent.config.UplinkIface,
-	        MacAddress: snat.Spec.MacAddress,
-		SnatIp: snat.Spec.SnatIp,
-		PodUuids: poduuids,
-		local: true,
-		PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
-			     End: snat.Spec.SnatPortRange.End, },
-		InterfaceVlan: agent.config.ServiceVlan,
+		logger.Debug("Pod is local...")
+		poduuids = append(poduuids, snat.Spec.PodUuid)
+		agent.log.Debug(poduuids)
+		snatip = &OpflexSnatIp {
+			Uuid: snatUuid,
+			IfaceName: agent.config.UplinkIface,
+			MacAddress: snat.Spec.MacAddress,
+			SnatIp: snat.Spec.SnatIp,
+			PodUuids: poduuids,
+			local: ispodlocal,
+			PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
+						    End: snat.Spec.SnatPortRange.End, },
+			InterfaceVlan: agent.config.ServiceVlan,
+			Remote: remoteinfo,
+		}
+	} else  {
+		logger.Debug("Pod is remote...")
+		var remote OpflexSnatIpRemoteInfo;
+		remote.MacAddress = snat.Spec.MacAddress
+		remote.PortRange.Start = snat.Spec.SnatPortRange.Start
+		remote.PortRange.End = snat.Spec.SnatPortRange.End
+		remoteinfo = existing.Remote
+		remoteinfo = append(remoteinfo, remote)
+		snatip = &OpflexSnatIp {
+			Uuid: snatUuid,
+			IfaceName: agent.config.UplinkIface,
+			MacAddress: existing.MacAddress,
+			SnatIp: existing.SnatIp,
+			PodUuids: existing.PodUuids,
+			local: ispodlocal,
+			PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
+						    End: snat.Spec.SnatPortRange.End, },
+			InterfaceVlan: agent.config.ServiceVlan,
+			Remote: remoteinfo,
+		}
 	}
 	if (ok && !reflect.DeepEqual(existing, snatip)) || !ok {
 		agent.OpflexSnatIps[snatUuid] = snatip
@@ -265,9 +301,9 @@ func (agent *HostAgent) syncSnat() bool {
 				opflexSnatIpLogger(agent.log, existing).Error("Error writing snat file: ", err)
 			} else if wrote {
 				opflexSnatIpLogger(agent.log, existing).Info("Updated snat")
-				for _, poduuid := range opflexSnatIps[uuid].PodUuids {
-					agent.UpdateEpFile(poduuid, existing.SnatIp)
-				}
+			}
+			for _, poduuid := range opflexSnatIps[uuid].PodUuids {
+				agent.UpdateEpFile(poduuid, existing.SnatIp)
 			}
 			seen[uuid] = true
 		} else {
@@ -304,7 +340,6 @@ func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 		opflexEps[k] = v
 	}
 	agent.indexMutex.Unlock()
-
 	files, err := ioutil.ReadDir(agent.config.OpFlexEndpointDir)
 	if err != nil {
 		agent.log.WithFields(
@@ -327,11 +362,11 @@ func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 			continue
 		}
 		poduuid := epid[0]
-
+		agent.log.Debug(uuid)
+		agent.log.Debug(poduuid)
 		if uuid != poduuid {
-			return false
+			continue
 		}
-
 		existing, ok := opflexEps[poduuid]
 		if ok {
 			ok = false
@@ -339,10 +374,9 @@ func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 				if ep.Uuid != epidstr {
 					continue
 				}
-				agent.indexMutex.Lock()
 				agent.opflexEps[poduuid][i].SnatIp = snatip
-				agent.indexMutex.Unlock()
 				ep.SnatIp = snatip
+				fmt.Printf("ep file updated with:%s\n", ep.SnatIp)
 				wrote, err := writeEp(epfile, ep)
 				if err != nil {
 					opflexEpLogger(agent.log, ep).
@@ -351,6 +385,7 @@ func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 					opflexEpLogger(agent.log, ep).
 						Info("Updated endpoint")
 				}
+				fmt.Printf("ep file updated with:%s\n", epfile)
 				ok = true
 			}
 		}

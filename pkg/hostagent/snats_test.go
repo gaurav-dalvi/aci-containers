@@ -102,7 +102,7 @@ var snatTests = []snatTest{
 		sgAnnot,
 	},
 	{
-		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a655",
+		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a655",
 		"6a281ef1-0fcb-4140-a38c-62977ef25d71",
 		"testns",
 		"pod3",
@@ -179,6 +179,7 @@ func TestSnatSync(t *testing.T) {
 				cnimd.Id.ContId: cnimd,
 			}
 		agent.fakePodSource.Add(pod)
+		time.Sleep(1000 * time.Millisecond)
 		//agent.doTestPod(t, tempdir, &pt, "create")
 	}
 	for i, pt := range snatTests {
@@ -201,13 +202,6 @@ func TestSnatSync(t *testing.T) {
 	}
 	for _, pt := range snatTests {
 		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
-		/*cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
-		cnimd.Ifaces[0].Mac = pt.mac
-		agent.epMetadata[pt.namespace+"/"+pt.name] =
-			map[string]*metadata.ContainerMetadata{
-				cnimd.Id.ContId: cnimd,
-			}
-		*/
 		agent.fakeSnatSource.Add(snat)
 
 		agent.doTestSnat(t, tempdir, &pt, "update")
