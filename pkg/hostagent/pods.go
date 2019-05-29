@@ -55,6 +55,7 @@ type opflexEndpoint struct {
 	IfaceName         string `json:"interface-name,omitempty"`
 
 	Attributes map[string]string `json:"attributes,omitempty"`
+	SnatIp string   `json:"snat-ip,omitempty"`
 }
 
 func (agent *HostAgent) initPodInformerFromClient(

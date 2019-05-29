@@ -39,7 +39,7 @@ type  portRange struct {
 	end   int
 }
 
-func snatdata(uuid string, namespace string, name string,
+func snatdata(uuid string, poduuid string, namespace string, name string,
 ip string, mac string, port_range portRange, egAnnot string, sgAnnot string) *snatv1.SnatAllocation {
 	return &snatv1.SnatAllocation{
 		Spec: snatv1.SnatAllocationSpec{
@@ -51,6 +51,7 @@ ip string, mac string, port_range portRange, egAnnot string, sgAnnot string) *sn
 			},
 			SnatIp: ip,
 			MacAddress: mac,
+			PodUuid: poduuid,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       apitypes.UID(uuid),
@@ -67,6 +68,7 @@ ip string, mac string, port_range portRange, egAnnot string, sgAnnot string) *sn
 
 type snatTest struct {
 	uuid      string
+	poduuid   string
 	namespace string
 	name      string
 	ip        string
@@ -78,35 +80,51 @@ type snatTest struct {
 
 var snatTests = []snatTest{
 	{
-		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a667",
+		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a688",
+		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a667",
 		"testns",
 		"pod1",
-		"10.1.1.1",
+		"10.1.1.7",
 		"00:0c:29:92:fe:d0",
 		portRange {3000, 4000},
 		egAnnot,
 		sgAnnot,
 	},
 	{
-		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a667",
+		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a655",
+		"6a281ef1-0fcb-4140-a38c-62977ef25d72",
 		"testns",
 		"pod2",
-		"10.1.1.3",
-		"00:0c:29:92:fe:d1",
+		"10.1.1.8",
+		"00:0c:29:92:fe:d0",
 		portRange {4000, 5000},
 		egAnnot,
 		sgAnnot,
 	},
 	{
-		"6a281ef1-0fcb-4140-a38c-62977ef25d72",
+		"730a8e7a-8455-4d46-8e6e-f4fdf0e3a655",
+		"6a281ef1-0fcb-4140-a38c-62977ef25d71",
 		"testns",
 		"pod3",
-		"10.1.1.2",
+		"10.1.1.8",
+		"00:0c:29:92:fe:d0",
+		portRange {4000, 5000},
+		egAnnot,
+		sgAnnot,
+	},
+	/*
+	{
+		"6a281ef1-0fcb-4140-a38c-62977ef25d72",
+		"683c333d-a594-4f00-baa6-0d578a13d83a",
+		"testns",
+		"pod3",
+		"10.1.1.10",
 		"52:54:00:e5:26:57",
 		portRange {5000, 6000},
 		egAnnot,
 		sgAnnot,
 	},
+	*/
 }
 
 func (agent *testHostAgent) doTestSnat(t *testing.T, tempdir string,
@@ -147,7 +165,22 @@ func TestSnatSync(t *testing.T) {
 	agent.config.UplinkIface = "eth10"
         agent.config.ServiceVlan = 4003
 	agent.run()
+	for i, pt := range podTests {
+		if i%2 == 0 {
+			ioutil.WriteFile(filepath.Join(tempdir,
+				pt.uuid+"_"+pt.cont+"_"+pt.veth+".ep"),
+				[]byte("random gibberish"), 0644)
+		}
 
+		pod := pod(pt.uuid, pt.namespace, pt.name, pt.eg, pt.sg)
+		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
+		agent.epMetadata[pt.namespace+"/"+pt.name] =
+			map[string]*metadata.ContainerMetadata{
+				cnimd.Id.ContId: cnimd,
+			}
+		agent.fakePodSource.Add(pod)
+		//agent.doTestPod(t, tempdir, &pt, "create")
+	}
 	for i, pt := range snatTests {
 		if i%2 == 0 {
 			ioutil.WriteFile(filepath.Join(tempdir,
@@ -155,7 +188,7 @@ func TestSnatSync(t *testing.T) {
 				[]byte("random gibberish"), 0644)
 		}
 
-		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
+		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
 	/*
 		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
 		agent.epMetadata[pt.namespace+"/"+pt.name] =
@@ -167,7 +200,7 @@ func TestSnatSync(t *testing.T) {
 		agent.doTestSnat(t, tempdir, &pt, "create")
 	}
 	for _, pt := range snatTests {
-		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
+		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
 		/*cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
 		cnimd.Ifaces[0].Mac = pt.mac
 		agent.epMetadata[pt.namespace+"/"+pt.name] =
@@ -181,7 +214,7 @@ func TestSnatSync(t *testing.T) {
 	}
 
 	for _, pt := range snatTests {
-		snat := snatdata(pt.uuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
+		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
 		agent.fakeSnatSource.Delete(snat)
 
 		tu.WaitFor(t, pt.name, 100*time.Millisecond,

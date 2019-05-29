@@ -46,8 +46,10 @@ type OpflexPortRange struct {
 	Start int `json:"port-start,omitempty"`
 	End  int `json:"port-end,omitempty"`
 }
+
 type OpflexSnatIp struct {
 	Uuid string `json:"uuid"`
+	PodUuids []string `json:"pod_uuid"`
 	IfaceName         string `json:"iface_name,omitempty"`
 	SnatIp  string `json:"snat_ip,omitempty"`
 	MacAddress string   `json:"mac,omitempty"`
@@ -109,7 +111,8 @@ func SnatLogger(log *logrus.Logger,  snat *snatv1.SnatAllocation) *logrus.Entry 
 func opflexSnatIpLogger(log *logrus.Logger, snatip *OpflexSnatIp) *logrus.Entry {
         return log.WithFields(logrus.Fields{
                 "uuid":      snatip.Uuid,
-                "snat_ip":     snatip.SnatIp,
+                "PodUuid":   snatip.PodUuids,
+		"snat_ip":     snatip.SnatIp,
 		"mac_address": snatip.MacAddress,
                 "start_port": snatip.PortRange.Start,
 		"end_port":   snatip.PortRange.End,
@@ -198,17 +201,25 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 	epMetaKey := fmt.Sprintf("%s/%s", snat.ObjectMeta.Namespace, snat.ObjectMeta.Name)
 	epmetadata, ok := agent.epMetadata[*epMetaKey] 
 	*/
+	poduuids := make([]string, 0)
+	existing, ok := agent.OpflexSnatIps[snatUuid]
+	if ok {
+		for _, uuid := range existing.PodUuids {
+			poduuids = append(poduuids, uuid)
+		}
+	}
+	poduuids = append(poduuids, snat.Spec.PodUuid)
 	snatip := &OpflexSnatIp {
 		Uuid: snatUuid,
 		IfaceName: agent.config.UplinkIface,
 	        MacAddress: snat.Spec.MacAddress,
-		SnatIp:  snat.Spec.SnatIp,
+		SnatIp: snat.Spec.SnatIp,
+		PodUuids: poduuids,
 		local: true,
 		PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
 			     End: snat.Spec.SnatPortRange.End, },
 		InterfaceVlan: agent.config.ServiceVlan,
 	}
-	existing, ok := agent.OpflexSnatIps[snatUuid]
 	if (ok && !reflect.DeepEqual(existing, snatip)) || !ok {
 		agent.OpflexSnatIps[snatUuid] = snatip
 		agent.scheduleSyncSnats()
@@ -245,9 +256,7 @@ func (agent *HostAgent) syncSnat() bool {
 
 		snatfile := filepath.Join(agent.config.OpFlexSnatDir, f.Name())
 		logger := agent.log.WithFields(
-			logrus.Fields{"Uuid": uuid},
-		)
-
+			logrus.Fields{"Uuid": uuid },)
 		existing, ok := opflexSnatIps[uuid]
 		if ok {
 			fmt.Printf("snatfile:%s\n", snatfile)
@@ -256,6 +265,9 @@ func (agent *HostAgent) syncSnat() bool {
 				opflexSnatIpLogger(agent.log, existing).Error("Error writing snat file: ", err)
 			} else if wrote {
 				opflexSnatIpLogger(agent.log, existing).Info("Updated snat")
+				for _, poduuid := range opflexSnatIps[uuid].PodUuids {
+					agent.UpdateEpFile(poduuid, existing.SnatIp)
+				}
 			}
 			seen[uuid] = true
 		} else {
@@ -276,7 +288,73 @@ func (agent *HostAgent) syncSnat() bool {
 			opflexSnatIpLogger(agent.log, snat).
 				Error("Error writing snat file: ", err)
 		}
+		for _, poduuid := range snat.PodUuids {
+			agent.UpdateEpFile(poduuid, snat.SnatIp)
+		}
 	}
 	agent.log.Debug("Finished snat sync")
 	return false;
+}
+func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
+
+	agent.log.Debug("Syncing endpoints")
+	agent.indexMutex.Lock()
+	opflexEps := make(map[string][]*opflexEndpoint)
+	for k, v := range agent.opflexEps {
+		opflexEps[k] = v
+	}
+	agent.indexMutex.Unlock()
+
+	files, err := ioutil.ReadDir(agent.config.OpFlexEndpointDir)
+	if err != nil {
+		agent.log.WithFields(
+			logrus.Fields{"endpointDir": agent.config.OpFlexEndpointDir},
+		).Error("Could not read directory ", err)
+		return true
+	}
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".ep") {
+			continue
+		}
+		epfile := filepath.Join(agent.config.OpFlexEndpointDir, f.Name())
+		epidstr := f.Name()
+		epidstr = epidstr[:len(epidstr)-3]
+		epid := strings.Split(epidstr, "_")
+
+		if len(epid) < 3 {
+			agent.log.Warn("Removing invalid endpoint:", f.Name())
+			os.Remove(epfile)
+			continue
+		}
+		poduuid := epid[0]
+
+		if uuid != poduuid {
+			return false
+		}
+
+		existing, ok := opflexEps[poduuid]
+		if ok {
+			ok = false
+			for i, ep := range existing {
+				if ep.Uuid != epidstr {
+					continue
+				}
+				agent.indexMutex.Lock()
+				agent.opflexEps[poduuid][i].SnatIp = snatip
+				agent.indexMutex.Unlock()
+				ep.SnatIp = snatip
+				wrote, err := writeEp(epfile, ep)
+				if err != nil {
+					opflexEpLogger(agent.log, ep).
+						Error("Error writing EP file: ", err)
+				} else if wrote {
+					opflexEpLogger(agent.log, ep).
+						Info("Updated endpoint")
+				}
+				ok = true
+			}
+		}
+	}
+	agent.log.Debug("Finished endpoint snatip sync")
+	return false
 }
