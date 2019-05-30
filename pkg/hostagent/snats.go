@@ -53,7 +53,7 @@ type OpflexSnatIp struct {
 	IfaceName         string `json:"iface-name,omitempty"`
 	SnatIp  string `json:"snat-ip,omitempty"`
 	MacAddress string   `json:"mac,omitempty"`
-        local bool          `json:"local,omitempty"`
+        Local bool          `json:"local,omitempty"`
 	DestIpAddress  string `json:"destip-dddress,omitempty"`
 	DestPrefix     uint16  `json:"destPrefix,omitempty"`
 	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
@@ -122,7 +122,7 @@ func opflexSnatIpLogger(log *logrus.Logger, snatip *OpflexSnatIp) *logrus.Entry 
 		"mac_address": snatip.MacAddress,
                 "start_port": snatip.PortRange.Start,
 		"end_port":   snatip.PortRange.End,
-		"local":      snatip.local,
+		"local":      snatip.Local,
 		"interface-name": snatip.IfaceName,
 		"interfcae-vlan": snatip.InterfaceVlan,
         })
@@ -229,32 +229,40 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 			MacAddress: snat.Spec.MacAddress,
 			SnatIp: snat.Spec.SnatIp,
 			PodUuids: poduuids,
-			local: ispodlocal,
+			Local: ispodlocal,
 			PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
 						    End: snat.Spec.SnatPortRange.End, },
 			InterfaceVlan: agent.config.ServiceVlan,
 			Remote: remoteinfo,
 		}
 	} else  {
-		logger.Debug("Pod is remote...")
 		var remote OpflexSnatIpRemoteInfo;
 		remote.MacAddress = snat.Spec.MacAddress
 		remote.PortRange.Start = snat.Spec.SnatPortRange.Start
 		remote.PortRange.End = snat.Spec.SnatPortRange.End
 		remoteinfo = existing.Remote
-		remoteinfo = append(remoteinfo, remote)
+		remoteexists := false
+		for _, v := range remoteinfo {
+			if  reflect.DeepEqual(v, remote) {
+				remoteexists = true
+			}
+		}
+		if remoteexists == false {
+			remoteinfo = append(remoteinfo, remote)
+		}
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
 			IfaceName: agent.config.UplinkIface,
 			MacAddress: existing.MacAddress,
 			SnatIp: existing.SnatIp,
 			PodUuids: existing.PodUuids,
-			local: ispodlocal,
+			Local: existing.Local,
 			PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
 						    End: snat.Spec.SnatPortRange.End, },
 			InterfaceVlan: agent.config.ServiceVlan,
 			Remote: remoteinfo,
 		}
+		logger.Debug("Pod is remote...")
 	}
 	if (ok && !reflect.DeepEqual(existing, snatip)) || !ok {
 		agent.OpflexSnatIps[snatUuid] = snatip
