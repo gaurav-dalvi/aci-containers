@@ -21,6 +21,7 @@ import (
 	v1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat/v1"
 	"github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
 type SnatV1Interface interface {
@@ -69,7 +70,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer =  serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

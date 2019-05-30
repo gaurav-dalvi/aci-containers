@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	md "github.com/noironetworks/aci-containers/pkg/metadata"
+	snatclientset "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
 )
 
 type Environment interface {
@@ -40,6 +41,7 @@ type Environment interface {
 
 type K8sEnvironment struct {
 	kubeClient        *kubernetes.Clientset
+	snatClient	  *snatclientset.Clientset
 	agent             *HostAgent
 	podInformer       cache.SharedIndexInformer
 	endpointsInformer cache.SharedIndexInformer
@@ -86,7 +88,11 @@ func NewK8sEnvironment(config *HostAgentConfig, log *logrus.Logger) (*K8sEnviron
 	if err != nil {
 		return nil, err
 	}
-	return &K8sEnvironment{kubeClient: kubeClient}, nil
+	snatClient, err := snatclientset.NewForConfig(restconfig)
+	if err !=nil {
+		return nil, err
+	}
+	return &K8sEnvironment{kubeClient: kubeClient, snatClient: snatClient}, nil
 }
 
 func (env *K8sEnvironment) Init(agent *HostAgent) error {
@@ -101,6 +107,7 @@ func (env *K8sEnvironment) Init(agent *HostAgent) error {
 	env.agent.initNetworkPolicyInformerFromClient(env.kubeClient)
 	env.agent.initDeploymentInformerFromClient(env.kubeClient)
 	env.agent.initRCInformerFromClient(env.kubeClient)
+	env.agent.initSnatInformerFromClient(env.snatClient)
 	env.agent.initNetPolPodIndex()
 	env.agent.initDepPodIndex()
 	env.agent.initRCPodIndex()

@@ -127,10 +127,10 @@ var snatTests = []snatTest{
 		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a655",
 		"6a281ef1-0fcb-4140-a38c-62977ef25d74",
 		"testns",
-		"pod3",
+		"pod4",
 		"10.1.1.8",
 		"00:0c:29:92:fe:d0",
-		portRange {10000, 11000},
+		portRange {9000, 10000},
 		egAnnot,
 		sgAnnot,
 	},
@@ -222,12 +222,14 @@ func TestSnatSync(t *testing.T) {
 		agent.fakeSnatSource.Add(snat)
 		agent.doTestSnat(t, tempdir, &pt, "create")
 	}
+	time.Sleep(3000 * time.Millisecond)
 	for _, pt := range snatTests {
 		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
 		agent.fakeSnatSource.Add(snat)
 
 		agent.doTestSnat(t, tempdir, &pt, "update")
 	}
+	time.Sleep(3000 * time.Millisecond)
 
 	for _, pt := range snatTests {
 		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)

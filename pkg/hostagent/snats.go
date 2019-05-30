@@ -8,7 +8,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// WITHOUT WARRATIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -25,22 +25,19 @@ import (
 	"reflect"
 	"strings"
 	"github.com/Sirupsen/logrus"
-/*
-	v1 "k8s.io/api/core/v1"
+	//v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
-*/
+	//"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/kubernetes/pkg/controller"
-/*
-	"github.com/noironetworks/aci-containers/pkg/metadata"
-*/
+	//"github.com/noironetworks/aci-containers/pkg/metadata"
 	//snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/snat/v1"
 	snatv1  "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat/v1"
+	snatclientset "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
 )
 type OpflexPortRange struct {
 	Start int `json:"port-start,omitempty"`
@@ -65,20 +62,24 @@ type OpflexSnatIpRemoteInfo struct {
 	NodeIp  string `json:"snat_ip,omitempty"`
 	MacAddress string   `json:"mac,omitempty"`
 	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
+	Refcount int
 }
-/*
 func (agent *HostAgent) initSnatInformerFromClient(
-	kubeClient *kubernetes.Clientset) {
-
+	snatClient *snatclientset.Clientset) {
 	agent.initSnatInformerBase(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.FieldSelector =
+					fields.Set{"spec.nodeName": agent.config.NodeName}.String()
+				return snatClient.SnatV1().SnatAllocations(metav1.NamespaceAll).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.FieldSelector =
+					fields.Set{"spec.nodeName": agent.config.NodeName}.String()
+				return snatClient.SnatV1().SnatAllocations(metav1.NamespaceAll).Watch(options)
 			},
 		})
 }
-*/
 
 func getsnat(snatfile string) (string, error) {
 	raw, err := ioutil.ReadFile(snatfile)
@@ -241,14 +242,19 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		remote.PortRange.Start = snat.Spec.SnatPortRange.Start
 		remote.PortRange.End = snat.Spec.SnatPortRange.End
 		remoteinfo = existing.Remote
+		agent.log.Debug("existing.Remote", remoteinfo)
 		remoteexists := false
-		for _, v := range remoteinfo {
-			if  reflect.DeepEqual(v, remote) {
+		for i, v := range remoteinfo {
+			if  v.MacAddress == remote.MacAddress  &&
+				v.PortRange.Start == remote.PortRange.Start &&
+				v.PortRange.End == remote.PortRange.End {
+				remoteinfo[i].Refcount++
 				remoteexists = true
 			}
 		}
 		if remoteexists == false {
 			remoteinfo = append(remoteinfo, remote)
+			remote.Refcount++
 		}
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
@@ -257,8 +263,8 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 			SnatIp: existing.SnatIp,
 			PodUuids: existing.PodUuids,
 			Local: existing.Local,
-			PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
-						    End: snat.Spec.SnatPortRange.End, },
+			PortRange: OpflexPortRange { Start: existing.PortRange.Start,
+						    End: existing.PortRange.End, },
 			InterfaceVlan: agent.config.ServiceVlan,
 			Remote: remoteinfo,
 		}
