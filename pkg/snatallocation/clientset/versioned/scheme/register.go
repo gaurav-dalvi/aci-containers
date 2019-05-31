@@ -18,12 +18,11 @@ limitations under the License.
 package scheme
 
 import (
-	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat/v1"
+	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/aci.snat/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	//utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 var Scheme = runtime.NewScheme()

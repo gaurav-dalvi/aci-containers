@@ -18,7 +18,7 @@ limitations under the License.
 package versioned
 
 import (
-	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/snat/v1"
+	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

@@ -19,8 +19,8 @@ package fake
 
 import (
 	clientset "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
-	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/snat/v1"
-	fakesnatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/snat/v1/fake"
+	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1"
+	fakesnatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

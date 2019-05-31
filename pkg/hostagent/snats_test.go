@@ -31,7 +31,7 @@ import (
 	"github.com/noironetworks/aci-containers/pkg/metadata"
 	//md "github.com/noironetworks/aci-containers/pkg/metadata"
 	tu "github.com/noironetworks/aci-containers/pkg/testutil"
-	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat/v1"
+	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/aci.snat/v1"
 )
 
 type  portRange struct {

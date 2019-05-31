@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	snat "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/snat"
+	snat "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/aci.snat"
 )
 
 // SchemeGroupVersion is group version used to register these objects

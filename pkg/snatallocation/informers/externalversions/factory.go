@@ -23,8 +23,8 @@ import (
 	time "time"
 
 	versioned "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
+	acisnat "github.com/noironetworks/aci-containers/pkg/snatallocation/informers/externalversions/aci.snat"
 	internalinterfaces "github.com/noironetworks/aci-containers/pkg/snatallocation/informers/externalversions/internalinterfaces"
-	snat "github.com/noironetworks/aci-containers/pkg/snatallocation/informers/externalversions/snat"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -171,9 +171,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Snat() snat.Interface
+	Snat() acisnat.Interface
 }
 
-func (f *sharedInformerFactory) Snat() snat.Interface {
-	return snat.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Snat() acisnat.Interface {
+	return acisnat.New(f, f.namespace, f.tweakListOptions)
 }
