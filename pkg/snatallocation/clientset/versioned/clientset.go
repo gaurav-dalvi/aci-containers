@@ -18,7 +18,7 @@ limitations under the License.
 package versioned
 
 import (
-	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1"
+	aciv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -26,19 +26,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	SnatV1() snatv1.SnatV1Interface
+	AciV1() aciv1.AciV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	snatV1 *snatv1.SnatV1Client
+	aciV1 *aciv1.AciV1Client
 }
 
-// SnatV1 retrieves the SnatV1Client
-func (c *Clientset) SnatV1() snatv1.SnatV1Interface {
-	return c.snatV1
+// AciV1 retrieves the AciV1Client
+func (c *Clientset) AciV1() aciv1.AciV1Interface {
+	return c.aciV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -57,7 +57,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.snatV1, err = snatv1.NewForConfig(&configShallowCopy)
+	cs.aciV1, err = aciv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.snatV1 = snatv1.NewForConfigOrDie(c)
+	cs.aciV1 = aciv1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -82,7 +82,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.snatV1 = snatv1.New(c)
+	cs.aciV1 = aciv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

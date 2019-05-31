@@ -54,7 +54,7 @@ type snatAllocations struct {
 }
 
 // newSnatAllocations returns a SnatAllocations
-func newSnatAllocations(c *SnatV1Client, namespace string) *snatAllocations {
+func newSnatAllocations(c *AciV1Client, namespace string) *snatAllocations {
 	return &snatAllocations{
 		client: c.RESTClient(),
 		ns:     namespace,

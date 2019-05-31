@@ -19,8 +19,8 @@ package fake
 
 import (
 	clientset "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
-	snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1"
-	fakesnatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1/fake"
+	aciv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1"
+	fakeaciv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/aci.snat/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -75,7 +75,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// SnatV1 retrieves the SnatV1Client
-func (c *Clientset) SnatV1() snatv1.SnatV1Interface {
-	return &fakesnatv1.FakeSnatV1{Fake: &c.Fake}
+// AciV1 retrieves the AciV1Client
+func (c *Clientset) AciV1() aciv1.AciV1Interface {
+	return &fakeaciv1.FakeAciV1{Fake: &c.Fake}
 }

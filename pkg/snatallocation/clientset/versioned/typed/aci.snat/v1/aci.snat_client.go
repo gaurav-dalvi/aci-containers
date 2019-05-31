@@ -24,22 +24,22 @@ import (
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
-type SnatV1Interface interface {
+type AciV1Interface interface {
 	RESTClient() rest.Interface
 	SnatAllocationsGetter
 }
 
-// SnatV1Client is used to interact with features provided by the snat group.
-type SnatV1Client struct {
+// AciV1Client is used to interact with features provided by the aci.snat group.
+type AciV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SnatV1Client) SnatAllocations(namespace string) SnatAllocationInterface {
+func (c *AciV1Client) SnatAllocations(namespace string) SnatAllocationInterface {
 	return newSnatAllocations(c, namespace)
 }
 
-// NewForConfig creates a new SnatV1Client for the given config.
-func NewForConfig(c *rest.Config) (*SnatV1Client, error) {
+// NewForConfig creates a new AciV1Client for the given config.
+func NewForConfig(c *rest.Config) (*AciV1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -48,12 +48,12 @@ func NewForConfig(c *rest.Config) (*SnatV1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SnatV1Client{client}, nil
+	return &AciV1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new SnatV1Client for the given config and
+// NewForConfigOrDie creates a new AciV1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *SnatV1Client {
+func NewForConfigOrDie(c *rest.Config) *AciV1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -61,9 +61,9 @@ func NewForConfigOrDie(c *rest.Config) *SnatV1Client {
 	return client
 }
 
-// New creates a new SnatV1Client for the given RESTClient.
-func New(c rest.Interface) *SnatV1Client {
-	return &SnatV1Client{c}
+// New creates a new AciV1Client for the given RESTClient.
+func New(c rest.Interface) *AciV1Client {
+	return &AciV1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -81,7 +81,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *SnatV1Client) RESTClient() rest.Interface {
+func (c *AciV1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

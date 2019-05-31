@@ -29,13 +29,13 @@ import (
 
 // FakeSnatAllocations implements SnatAllocationInterface
 type FakeSnatAllocations struct {
-	Fake *FakeSnatV1
+	Fake *FakeAciV1
 	ns   string
 }
 
-var snatallocationsResource = schema.GroupVersionResource{Group: "snat", Version: "v1", Resource: "snatallocations"}
+var snatallocationsResource = schema.GroupVersionResource{Group: "aci.snat", Version: "v1", Resource: "snatallocations"}
 
-var snatallocationsKind = schema.GroupVersionKind{Group: "snat", Version: "v1", Kind: "SnatAllocation"}
+var snatallocationsKind = schema.GroupVersionKind{Group: "aci.snat", Version: "v1", Kind: "SnatAllocation"}
 
 // Get takes name of the snatAllocation, and returns the corresponding snatAllocation object, and an error if there is any.
 func (c *FakeSnatAllocations) Get(name string, options v1.GetOptions) (result *acisnatv1.SnatAllocation, err error) {

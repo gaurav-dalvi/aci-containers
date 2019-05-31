@@ -71,12 +71,12 @@ func (agent *HostAgent) initSnatInformerFromClient(
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector =
 					fields.Set{"spec.nodeName": agent.config.NodeName}.String()
-				return snatClient.SnatV1().SnatAllocations(metav1.NamespaceAll).List(options)
+				return snatClient.AciV1().SnatAllocations(metav1.NamespaceAll).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector =
 					fields.Set{"spec.nodeName": agent.config.NodeName}.String()
-				return snatClient.SnatV1().SnatAllocations(metav1.NamespaceAll).Watch(options)
+				return snatClient.AciV1().SnatAllocations(metav1.NamespaceAll).Watch(options)
 			},
 		})
 }

@@ -171,9 +171,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Snat() acisnat.Interface
+	Aci() acisnat.Interface
 }
 
-func (f *sharedInformerFactory) Snat() acisnat.Interface {
+func (f *sharedInformerFactory) Aci() acisnat.Interface {
 	return acisnat.New(f, f.namespace, f.tweakListOptions)
 }

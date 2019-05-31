@@ -60,13 +60,13 @@ func NewFilteredSnatAllocationInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SnatV1().SnatAllocations(namespace).List(options)
+				return client.AciV1().SnatAllocations(namespace).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SnatV1().SnatAllocations(namespace).Watch(options)
+				return client.AciV1().SnatAllocations(namespace).Watch(options)
 			},
 		},
 		&acisnatv1.SnatAllocation{},
