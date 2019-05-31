@@ -124,7 +124,7 @@ var snatTests = []snatTest{
 		sgAnnot,
 	},
 	{
-		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a655",
+		"730a8e7a-8455-4d46-8e6e-n4fdf0e3a665",
 		"6a281ef1-0fcb-4140-a38c-62977ef25d74",
 		"testns",
 		"pod4",

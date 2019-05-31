@@ -211,17 +211,25 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 	existing, ok := agent.OpflexSnatIps[snatUuid]
 	remoteinfo := make([]OpflexSnatIpRemoteInfo, 0)
 	var snatip *OpflexSnatIp
+	podset := false
 	if ispodlocal {
 		//logger.Debug("Pod is local...")
 		poduuids := make([]string, 0)
 		if ok {
 			for _, uuid := range existing.PodUuids {
+				if  uuid == snat.Spec.PodUuid {
+					podset = true;
+				}
 				poduuids = append(poduuids, uuid)
 			}
 			remoteinfo = existing.Remote
 		}
 		logger.Debug("Pod is local...")
-		poduuids = append(poduuids, snat.Spec.PodUuid)
+
+		if podset == false {
+			poduuids = append(poduuids, snat.Spec.PodUuid)
+		}
+
 		agent.log.Debug(poduuids)
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
@@ -236,11 +244,24 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 			Remote: remoteinfo,
 		}
 	} else  {
-		var remote OpflexSnatIpRemoteInfo;
+		var remote OpflexSnatIpRemoteInfo
+		var macAdress  string
+		var snat_ipaddr     string
+		poduuids :=  make([]string, 0)
+		var portrange OpflexPortRange
+		var  local bool
 		remote.MacAddress = snat.Spec.MacAddress
 		remote.PortRange.Start = snat.Spec.SnatPortRange.Start
 		remote.PortRange.End = snat.Spec.SnatPortRange.End
-		remoteinfo = existing.Remote
+		if ok {
+			remoteinfo = existing.Remote
+			macAdress = existing.MacAddress
+			snat_ipaddr = existing.SnatIp
+			poduuids = existing.PodUuids
+			local = existing.Local
+			portrange.Start = existing.PortRange.Start
+			portrange.End = existing.PortRange.End
+		}
 		agent.log.Debug("existing.Remote", remoteinfo)
 		remoteexists := false
 		for i, v := range remoteinfo {
@@ -258,12 +279,11 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
 			IfaceName: agent.config.UplinkIface,
-			MacAddress: existing.MacAddress,
-			SnatIp: existing.SnatIp,
-			PodUuids: existing.PodUuids,
-			Local: existing.Local,
-			PortRange: OpflexPortRange { Start: existing.PortRange.Start,
-						    End: existing.PortRange.End, },
+			MacAddress: macAdress,
+			SnatIp: snat_ipaddr,
+			PodUuids: poduuids,
+			Local: local,
+			PortRange:portrange,
 			InterfaceVlan: agent.config.ServiceVlan,
 			Remote: remoteinfo,
 		}
