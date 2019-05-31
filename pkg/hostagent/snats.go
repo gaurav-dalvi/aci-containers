@@ -261,6 +261,9 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 			local = existing.Local
 			portrange.Start = existing.PortRange.Start
 			portrange.End = existing.PortRange.End
+		} else {
+			snat_ipaddr = snat.Spec.SnatIp
+			local = false
 		}
 		agent.log.Debug("existing.Remote", remoteinfo)
 		remoteexists := false
@@ -276,6 +279,7 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 			remoteinfo = append(remoteinfo, remote)
 			remote.Refcount++
 		}
+		agent.log.Debug("Remote Info", remoteinfo)
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
 			IfaceName: agent.config.UplinkIface,
