@@ -1,5 +1,5 @@
-package snat
+package acisnat
 
 const (
-	GroupName = "snat"
+	GroupName = "aci.snat"
 )
