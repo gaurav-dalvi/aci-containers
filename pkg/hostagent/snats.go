@@ -207,7 +207,7 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 	epMetaKey := fmt.Sprintf("%s/%s", snat.ObjectMeta.Namespace, snat.ObjectMeta.Name)
 	epmetadata, ok := agent.epMetadata[*epMetaKey] 
 	*/
-	_, ispodlocal := agent.opflexEps[snat.Spec.PodUuid]
+	_, ispodlocal := agent.opflexEps[snat.Spec.Poduid]
 	existing, ok := agent.OpflexSnatIps[snatUuid]
 	remoteinfo := make([]OpflexSnatIpRemoteInfo, 0)
 	var snatip *OpflexSnatIp
@@ -217,7 +217,7 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		poduuids := make([]string, 0)
 		if ok {
 			for _, uuid := range existing.PodUuids {
-				if  uuid == snat.Spec.PodUuid {
+				if  uuid == snat.Spec.Poduid {
 					podset = true;
 				}
 				poduuids = append(poduuids, uuid)
@@ -227,19 +227,19 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		logger.Debug("Pod is local...")
 
 		if podset == false {
-			poduuids = append(poduuids, snat.Spec.PodUuid)
+			poduuids = append(poduuids, snat.Spec.Poduid)
 		}
 
 		agent.log.Debug(poduuids)
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
 			IfaceName: agent.config.UplinkIface,
-			MacAddress: snat.Spec.MacAddress,
-			SnatIp: snat.Spec.SnatIp,
+			MacAddress: snat.Spec.Macaddress,
+			SnatIp: snat.Spec.Snatip,
 			PodUuids: poduuids,
 			Local: ispodlocal,
-			PortRange: OpflexPortRange { Start: snat.Spec.SnatPortRange.Start,
-						    End: snat.Spec.SnatPortRange.End, },
+			PortRange: OpflexPortRange { Start: snat.Spec.Snatportrange.Start,
+						    End: snat.Spec.Snatportrange.End, },
 			InterfaceVlan: agent.config.ServiceVlan,
 			Remote: remoteinfo,
 		}
@@ -250,9 +250,9 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		poduuids :=  make([]string, 0)
 		var portrange OpflexPortRange
 		var  local bool
-		remote.MacAddress = snat.Spec.MacAddress
-		remote.PortRange.Start = snat.Spec.SnatPortRange.Start
-		remote.PortRange.End = snat.Spec.SnatPortRange.End
+		remote.MacAddress = snat.Spec.Macaddress
+		remote.PortRange.Start = snat.Spec.Snatportrange.Start
+		remote.PortRange.End = snat.Spec.Snatportrange.End
 		if ok {
 			remoteinfo = existing.Remote
 			macAdress = existing.MacAddress
@@ -262,7 +262,7 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 			portrange.Start = existing.PortRange.Start
 			portrange.End = existing.PortRange.End
 		} else {
-			snat_ipaddr = snat.Spec.SnatIp
+			snat_ipaddr = snat.Spec.Snatip
 			local = false
 		}
 		agent.log.Debug("existing.Remote", remoteinfo)

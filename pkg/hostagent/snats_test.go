@@ -43,15 +43,15 @@ func snatdata(uuid string, poduuid string, namespace string, name string,
 ip string, mac string, port_range portRange, egAnnot string, sgAnnot string) *snatv1.SnatAllocation {
 	return &snatv1.SnatAllocation{
 		Spec: snatv1.SnatAllocationSpec{
-			PodName:  name,
-			NodeName: "test-node",
-			SnatPortRange: snatv1.PortRange {
+			Podname:  name,
+			Nodename: "test-node",
+			Snatportrange: snatv1.PortRange {
 				Start:  port_range.start,
 				End:   port_range.end,
 			},
-			SnatIp: ip,
-			MacAddress: mac,
-			PodUuid: poduuid,
+			Snatip: ip,
+			Macaddress: mac,
+			Poduid: poduuid,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       apitypes.UID(uuid),

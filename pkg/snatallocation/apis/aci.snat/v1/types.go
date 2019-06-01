@@ -20,14 +20,15 @@ type SnatAllocationSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	PodUuid	      string    `json:"pod_uid"`
-	PodName       string    `json:"pod_name"`
-	NodeName      string    `json:"node_name"`
-	SnatPortRange PortRange `json:"snat_port_range,omitempty"`
-	SnatIp        string    `json:"snat_ip"`
+	Podname       string    `json:"podname"`
+	Poduid        string `json:"poduid"`
+	Nodename      string    `json:"nodename"`
+	Snatportrange PortRange `json:"snatportrange"`
+	Snatip        string    `json:"snatip"`
+	Snatipuid     string  `json:"snatipuid"`
 	Namespace     string    `json:"namespace"`
-	MacAddress    string    `json:"mac_address"`
-	Scope         string    `json:"string"`
+	Macaddress    string    `json:"macaddress"`
+	Scope         string    `json:"string,omitempty"`
 }
 
 type SnatAllocationStatus struct {
@@ -40,7 +41,6 @@ type SnatAllocationStatus struct {
 type SnatAllocationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-
 	Items []SnatAllocation `json:"items"`
 }
 
