@@ -132,7 +132,7 @@ var opflexConfigBase = initTempl("opflex-config-base", `{
     },
     "service-sources": {
         "filesystem": ["{{.OpFlexServiceDir | js}}"]
-    }
+    },
     "snat-sources": {
         "filesystem": ["{{.OpFlexSnatDir | js}}"]
     }
