@@ -34,7 +34,7 @@ if [ -w ${PREFIX} ]; then
     # Setup folders to hold metadata
     mkdir -p ${VARDIR}/lib/opflex-agent-ovs/endpoints
     mkdir -p ${VARDIR}/lib/opflex-agent-ovs/services
-    mkdir -p ${VARDIR}/lib/opflex-agent-ovs/snat
+    mkdir -p ${VARDIR}/lib/opflex-agent-ovs/snats
     mkdir -p ${VARDIR}/lib/aci-containers/k8s-pod-network
 fi
 
