@@ -39,8 +39,8 @@ import (
 	snatclientset "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
 )
 type OpflexPortRange struct {
-	Start int `json:"port-start,omitempty"`
-	End  int `json:"port-end,omitempty"`
+	Start int `json:"start,omitempty"`
+	End  int `json:"end,omitempty"`
 }
 
 type OpflexSnatIp struct {
