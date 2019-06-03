@@ -46,13 +46,13 @@ type OpflexPortRange struct {
 type OpflexSnatIp struct {
 	Uuid string `json:"uuid"`
 	PodUuids []string `json:"pod-uuid"`
-	IfaceName         string `json:"iface-name,omitempty"`
+	InterfaceName         string `json:"interface-name,omitempty"`
 	SnatIp  string `json:"snat-ip,omitempty"`
-	MacAddress string   `json:"mac,omitempty"`
+	InterfaceMac string   `json:"interface-mac,omitempty"`
         Local bool          `json:"local,omitempty"`
 	DestIpAddress  string `json:"destip-dddress,omitempty"`
 	DestPrefix     uint16  `json:"destPrefix,omitempty"`
-	PortRange      OpflexPortRange  `json:"port-range,omitempty"`
+	PortRange      []OpflexPortRange  `json:"port-range,omitempty"`
 	InterfaceVlan uint `json:"interface_vlan,omitempty"`
 	Remote  []OpflexSnatIpRemoteInfo `json:"remote,omitempty"`
 }
@@ -119,11 +119,10 @@ func opflexSnatIpLogger(log *logrus.Logger, snatip *OpflexSnatIp) *logrus.Entry 
                 "uuid":      snatip.Uuid,
                 "PodUuid":   snatip.PodUuids,
 		"snat_ip":     snatip.SnatIp,
-		"mac_address": snatip.MacAddress,
-                "start_port": snatip.PortRange.Start,
-		"end_port":   snatip.PortRange.End,
+		"mac_address": snatip.InterfaceMac,
+                "port_range": snatip.PortRange,
 		"local":      snatip.Local,
-		"interface-name": snatip.IfaceName,
+		"interface-name": snatip.InterfaceName,
 		"interfcae-vlan": snatip.InterfaceVlan,
         })
 }
@@ -227,19 +226,22 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		logger.Debug("Pod is local...")
 
 		if podset == false {
+
 			poduuids = append(poduuids, snat.Spec.Poduid)
 		}
+		portrange := make([]OpflexPortRange, 0)
+		portrange = append (portrange, OpflexPortRange { Start: snat.Spec.Snatportrange.Start,
+                                                    End: snat.Spec.Snatportrange.End,})
 
 		agent.log.Debug(poduuids)
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
-			IfaceName: agent.config.UplinkIface,
-			MacAddress: snat.Spec.Macaddress,
+			InterfaceName: agent.config.UplinkIface,
+			InterfaceMac: snat.Spec.Macaddress,
 			SnatIp: snat.Spec.Snatip,
 			PodUuids: poduuids,
 			Local: ispodlocal,
-			PortRange: OpflexPortRange { Start: snat.Spec.Snatportrange.Start,
-						    End: snat.Spec.Snatportrange.End, },
+			PortRange: portrange,
 			InterfaceVlan: agent.config.ServiceVlan,
 			Remote: remoteinfo,
 		}
@@ -248,19 +250,18 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		var macAdress  string
 		var snat_ipaddr     string
 		poduuids :=  make([]string, 0)
-		var portrange OpflexPortRange
+		portrange := make([]OpflexPortRange, 0)
 		var  local bool
 		remote.MacAddress = snat.Spec.Macaddress
 		remote.PortRange.Start = snat.Spec.Snatportrange.Start
 		remote.PortRange.End = snat.Spec.Snatportrange.End
 		if ok {
 			remoteinfo = existing.Remote
-			macAdress = existing.MacAddress
+			macAdress = existing.InterfaceMac
 			snat_ipaddr = existing.SnatIp
 			poduuids = existing.PodUuids
 			local = existing.Local
-			portrange.Start = existing.PortRange.Start
-			portrange.End = existing.PortRange.End
+			portrange = existing.PortRange
 		} else {
 			snat_ipaddr = snat.Spec.Snatip
 			local = false
@@ -282,8 +283,8 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		agent.log.Debug("Remote Info", remoteinfo)
 		snatip = &OpflexSnatIp {
 			Uuid: snatUuid,
-			IfaceName: agent.config.UplinkIface,
-			MacAddress: macAdress,
+			InterfaceName: agent.config.UplinkIface,
+			InterfaceMac: macAdress,
 			SnatIp: snat_ipaddr,
 			PodUuids: poduuids,
 			Local: local,
