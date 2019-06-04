@@ -25,16 +25,12 @@ import (
 	"reflect"
 	"strings"
 	"github.com/Sirupsen/logrus"
-	//v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	//"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/kubernetes/pkg/controller"
-	//"github.com/noironetworks/aci-containers/pkg/metadata"
-	//snatv1 "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned/typed/snat/v1"
 	snatv1  "github.com/noironetworks/aci-containers/pkg/snatallocation/apis/aci.snat/v1"
 	snatclientset "github.com/noironetworks/aci-containers/pkg/snatallocation/clientset/versioned"
 )
@@ -68,13 +64,9 @@ func (agent *HostAgent) initSnatInformerFromClient(
 	agent.initSnatInformerBase(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			//	options.FieldSelector =
-			//		fields.Set{"spec.nodeName": agent.config.NodeName}.String()
 				return snatClient.AciV1().SnatAllocations(metav1.NamespaceAll).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			//	options.FieldSelector =
-			//		fields.Set{"spec.nodeName": agent.config.NodeName}.String()
 				return snatClient.AciV1().SnatAllocations(metav1.NamespaceAll).Watch(options)
 			},
 		})
@@ -165,10 +157,49 @@ func (agent *HostAgent) snatUpdate(obj interface{}) {
 func (agent *HostAgent) snatDelete(obj interface{}) {
 	agent.log.Debug("Snat Delete Obj")
 	agent.indexMutex.Lock()
+	markdelete := false
         defer agent.indexMutex.Unlock()
 	snat := obj.(*snatv1.SnatAllocation)
 	snatUuid := string(snat.ObjectMeta.UID)
-	agent.snatIpDeleted(&snatUuid)
+	if opflexsnatip, ok := agent.OpflexSnatIps[snatUuid]; ok {
+		 _, ispodlocal := agent.opflexEps[snat.Spec.Poduid]
+		if ispodlocal == true {
+			for i, uuid := range opflexsnatip.PodUuids {
+				if uuid == snat.Spec.Poduid {
+					a := opflexsnatip.PodUuids
+					a[i] = a[len(a)-1] // Copy last element
+					a = a[:len(a)-1]  // truncate slice
+					opflexsnatip.PodUuids = a
+					agent.UpdateEpFile(uuid, "")
+					agent.log.Debug("POD deleted", uuid)
+				}
+			}
+		} else  {
+			for i, v := range opflexsnatip.Remote {
+				if  v.MacAddress == snat.Spec.Macaddress  &&
+				v.PortRange.Start == snat.Spec.Snatportrange.Start &&
+				v.PortRange.End == snat.Spec.Snatportrange.End {
+					if (v.Refcount-1 == 0) {
+						a := opflexsnatip.Remote
+						a[i] = a[len(a)-1]
+						a = a[:len(a)-1]
+						opflexsnatip.Remote = a
+						agent.log.Debug("POD remoteInfo deleted",  v)
+					} else {
+						opflexsnatip.Remote[i].Refcount--;
+					}
+				}
+			}
+		}
+		if len(opflexsnatip.PodUuids) == 0 &&  len(opflexsnatip.Remote) == 0 {
+			markdelete = true;
+		}
+	}
+	if markdelete == true {
+		agent.snatIpDeleted(&snatUuid)
+	} else {
+		agent.scheduleSyncSnats()
+	}
 }
 
 func (agent *HostAgent) snatIpDeleted(snatUuid *string) {
@@ -202,10 +233,6 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 		logger = agent.log.WithFields(logrus.Fields{})
 	}
 	logger.Debug("SnatChanged...")
-	/*
-	epMetaKey := fmt.Sprintf("%s/%s", snat.ObjectMeta.Namespace, snat.ObjectMeta.Name)
-	epmetadata, ok := agent.epMetadata[*epMetaKey] 
-	*/
 	_, ispodlocal := agent.opflexEps[snat.Spec.Poduid]
 	existing, ok := agent.OpflexSnatIps[snatUuid]
 	remoteinfo := make([]OpflexSnatIpRemoteInfo, 0)

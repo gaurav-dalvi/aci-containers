@@ -230,7 +230,16 @@ func TestSnatSync(t *testing.T) {
 		agent.doTestSnat(t, tempdir, &pt, "update")
 	}
 	time.Sleep(3000 * time.Millisecond)
-
+	for _, pt := range podTests {
+		pod := pod(pt.uuid, pt.namespace, pt.name, pt.eg, pt.sg)
+		cnimd := cnimd(pt.namespace, pt.name, pt.ip, pt.cont, pt.veth)
+		agent.epMetadata[pt.namespace+"/"+pt.name] =
+			map[string]*metadata.ContainerMetadata{
+				cnimd.Id.ContId: cnimd,
+			}
+		agent.fakePodSource.Delete(pod)
+		time.Sleep(1000 * time.Millisecond)
+	}
 	for _, pt := range snatTests {
 		snat := snatdata(pt.uuid, pt.poduuid, pt.namespace, pt.name, pt.ip, pt.mac, pt.port_range, pt.eg, pt.sg)
 		agent.fakeSnatSource.Delete(snat)
