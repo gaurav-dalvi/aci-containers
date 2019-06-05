@@ -49,7 +49,7 @@ type OpflexSnatIp struct {
 	DestIpAddress  string `json:"destip-dddress,omitempty"`
 	DestPrefix     uint16  `json:"destPrefix,omitempty"`
 	PortRange      []OpflexPortRange  `json:"port-range,omitempty"`
-	InterfaceVlan uint `json:"interface_vlan,omitempty"`
+	InterfaceVlan uint `json:"interface-vlan,omitempty"`
 	Remote  []OpflexSnatIpRemoteInfo `json:"remote,omitempty"`
 }
 
@@ -301,11 +301,12 @@ func (agent *HostAgent) snatChanged(snatobj interface{}, logger *logrus.Entry) {
 				v.PortRange.End == remote.PortRange.End {
 				remoteinfo[i].Refcount++
 				remoteexists = true
+				break;
 			}
 		}
 		if remoteexists == false {
-			remoteinfo = append(remoteinfo, remote)
 			remote.Refcount++
+			remoteinfo = append(remoteinfo, remote)
 		}
 		agent.log.Debug("Remote Info", remoteinfo)
 		snatip = &OpflexSnatIp {
@@ -398,13 +399,13 @@ func (agent *HostAgent) syncSnat() bool {
 }
 func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 
-	agent.log.Debug("Syncing endpoints")
-	agent.indexMutex.Lock()
+	agent.log.Debug("Updating Ep file with snat ip:", snatip)
+	//agent.indexMutex.Lock()
 	opflexEps := make(map[string][]*opflexEndpoint)
 	for k, v := range agent.opflexEps {
 		opflexEps[k] = v
 	}
-	agent.indexMutex.Unlock()
+	//agent.indexMutex.Unlock()
 	files, err := ioutil.ReadDir(agent.config.OpFlexEndpointDir)
 	if err != nil {
 		agent.log.WithFields(
@@ -441,7 +442,6 @@ func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 				}
 				agent.opflexEps[poduuid][i].SnatIp = snatip
 				ep.SnatIp = snatip
-				fmt.Printf("ep file updated with:%s\n", ep.SnatIp)
 				wrote, err := writeEp(epfile, ep)
 				if err != nil {
 					opflexEpLogger(agent.log, ep).
@@ -450,7 +450,6 @@ func (agent *HostAgent) UpdateEpFile(uuid string, snatip string) bool {
 					opflexEpLogger(agent.log, ep).
 						Info("Updated endpoint")
 				}
-				fmt.Printf("ep file updated with:%s\n", epfile)
 				ok = true
 			}
 		}
