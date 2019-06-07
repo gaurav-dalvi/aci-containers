@@ -52,6 +52,7 @@ ip string, mac string, port_range portRange, egAnnot string, sgAnnot string) *sn
 			Snatip: ip,
 			Macaddress: mac,
 			Poduid: poduuid,
+			Snatipuid: uuid,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       apitypes.UID(uuid),
